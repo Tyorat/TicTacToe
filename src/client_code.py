@@ -1,5 +1,6 @@
 import os
 import json
+import socket
 import subprocess
 import sys
 import datetime
@@ -10,6 +11,16 @@ from game_client_ui import Ui_MainWindow
 
 SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
 DATA_BASE_PATH = os.path.join(SCRIPT_PATH, "ted.data")
+
+
+class ClientSocket:
+    def __init__(self):
+        client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_sock.connect(('0', 8080))
+        client_sock.sendall(b'Hello, world')
+        data = client_sock.recv(1024)
+        client_sock.close()
+        print('Received', repr(data))
 
 
 class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -44,6 +55,7 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
 if __name__ == "__main__":
+    # clSoc = ClientSocket()
     app = QtWidgets.QApplication(sys.argv)
     wind = GameClient()
     wind.show()
