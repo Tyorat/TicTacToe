@@ -17,7 +17,8 @@ class ClientSocket:
     def __init__(self):
         client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_sock.connect(('0', 8080))
-        client_sock.sendall(b'Hello, world')
+        req = {"command": "login", "username": "bogdan", "password": "vy767676", "email": "robert_polson@gmail.com"}
+        client_sock.sendall(bytes(json.dumps(req), "utf-8"))
         data = client_sock.recv(1024)
         client_sock.close()
         print('Received', repr(data))
@@ -55,8 +56,8 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
 
 
 if __name__ == "__main__":
-    # clSoc = ClientSocket()
-    app = QtWidgets.QApplication(sys.argv)
-    wind = GameClient()
-    wind.show()
-    sys.exit(app.exec_())
+    clSoc = ClientSocket()
+    # app = QtWidgets.QApplication(sys.argv)
+    # wind = GameClient()
+    # wind.show()
+    # sys.exit(app.exec_())
