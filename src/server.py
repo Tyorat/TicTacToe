@@ -73,7 +73,8 @@ class GameServer:
             response = self.user_db.signup_user(request["username"], request["password"], request["email"])
         elif command == "login":
             response = self.user_db.login_user(request["username"], request["password"])
-            self.users[request["username"]] = {"taken": response["taken"], "game": None}
+            if response["authorization"]:
+                self.users[request["username"]] = {"taken": response["taken"], "game": None}
         elif command == "start":
             username = request["username"]
             if username in self.users and self.users[username]["taken"] == request["taken"]:

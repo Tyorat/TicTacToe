@@ -12,7 +12,7 @@ class Authorization:
 
     def login_user(self, username, password):
         user = self.db.get_user(username)
-        if user[PASSWORD] == hashlib.sha256(
+        if user and user[PASSWORD] == hashlib.sha256(
                 password.encode("utf-8")).hexdigest():
             return {"authorization": True, "taken": "".join(
                 [secrets.choice(string.ascii_letters + string.digits) for _ in range(16)])}
