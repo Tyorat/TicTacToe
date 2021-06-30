@@ -1,9 +1,11 @@
+import os
 import hashlib
 import secrets
 import string
 import sqlite3
 
 PASSWORD = 2
+SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
 
 
 class Authorization:
@@ -31,7 +33,7 @@ class Authorization:
 
 class UserStorage:
     def __init__(self):
-        self.connection = sqlite3.connect("../data/users.db")
+        self.connection = sqlite3.connect(os.path.join(SCRIPT_PATH, "..", "..", "data", "users.db"))
         cur = self.connection.cursor()
         cur.execute("CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, username CHAR(255) NOT NULL, "
                     "password CHAR(64) NOT NULL, email CHAR(255) );")

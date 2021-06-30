@@ -17,8 +17,9 @@ class WrongMove(Exception): pass
 
 
 class Game:
-    def __init__(self):
+    def __init__(self, player_one, player_two):
         self.__field = list(range(1, 10))
+        self.switch_turn = {player_one: player_two, player_two: player_one}
         self.__turn = None
         self.choose_random_player()
 
@@ -32,26 +33,27 @@ class Game:
         self.show_field()
         for combo in WIN_COMBO:
             if self.__field[combo[0] - 1] == self.__field[combo[1] - 1] == self.__field[combo[2] - 1]:
-                return f"win {self.__field[combo[0] - 1]}"
+                return{"endgame": True, "message": f"win {self.__field[combo[0] - 1]}"}
         if not any(list(map(lambda x: str(x).isdigit(), self.__field))):
-            return "draw"
+            return {"endgame": True, "message": "draw"}
         else:
-            return "wait opponent"
+            return {"endgame": False, "message": "wait for opponent"}
 
     def check_turn(self, index, who):
         if self.__field[index - 1] != index:
             raise WrongMove("The cell is already occupied")
-        elif who not in "xo":
-            raise WrongMove("Wrong symbol")
+        elif who not in self.switch_turn.keys():
+            raise WrongMove("Wrong player")
         elif who != self.__turn:
             raise WrongMove("Not your turn")
         self.__field[index - 1] = who
         res = self.check_end_game()
-        self.__turn = SWITCH_TURN[self.__turn]
+        self.__turn = self.switch_turn[self.__turn]
         return res
 
     def choose_random_player(self):
-        self.__turn = secrets.choice("xo")
+        print(self.switch_turn.keys())
+        self.__turn = secrets.choice(list(self.switch_turn.keys()))
 
     def show_field(self):
         print("************")
