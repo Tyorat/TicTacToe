@@ -1,7 +1,17 @@
+import socket
 import asyncio
 from game_logic import Game, WrongMove
 import json
 from database_connector import Authorization
+
+
+def show_ip():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        sock.connect(("8.8.8.8", 80))
+        print(f"Server have ip: {sock.getsockname()[0]}")
+    finally:
+        sock.close()
 
 
 class GameForWith:
@@ -28,8 +38,8 @@ class GameServer:
 
     async def run_server(self):
         self.server = await asyncio.start_server(self.serv_client, self.host, self.port)
-        await self.server.serve_forever()
         print('server is running, please, press ctrl+c to stop')
+        await self.server.serve_forever()
 
     async def serv_client(self, reader, writer):
         request = await self.read_request(reader)
@@ -53,8 +63,9 @@ class GameServer:
             if delimiter in request:
                 try:
                     return json.loads(str(request, "utf-8"))
-                except:
+                except json.decoder.JSONDecodeError:
                     print(request)
+                    print("Error while reading request.")
 
         return None
 
@@ -63,9 +74,9 @@ class GameServer:
         command:
         register (username, password, email)
         login (username, password)
-        start (username, type, level, taken)
-        turn (username, ceil, taken)
-        surr (username, taken)
+        start (username, type, level, token)
+        turn (username, ceil, token)
+        surr (username, token)
         :param writer:
         :param request:
         :return:
@@ -78,7 +89,7 @@ class GameServer:
         elif command == "login":
             db_mes = self.user_db.login_user(request["username"], request["password"])
             if db_mes["authorization"]:
-                self.users[request["username"]] = {"taken": db_mes["taken"], "game": None}
+                self.users[request["username"]] = {"token": db_mes["token"], "game": None}
             response[0]["message"] = db_mes
         elif command == "start":
             response = self.handle_find_game(request, writer)
@@ -89,7 +100,7 @@ class GameServer:
     def handle_find_game(self, request, writer):
         username = request["username"]
         response = []
-        if username in self.users and self.users[username]["taken"] == request["taken"]:
+        if username in self.users and self.users[username]["token"] == request["token"]:
             self.users[username]["game"] = "wait"
             self.users_wait_match.append(username)
             self.users[username]["writer"] = writer

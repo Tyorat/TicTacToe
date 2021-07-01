@@ -17,7 +17,7 @@ SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
 
 class ClientSockWith:
     def __init__(self, host, port):
-        self.__server = ClientSocket()
+        self.__server = ClientSocket(host, port)
 
     def __enter__(self):
         return self.__server
@@ -28,10 +28,10 @@ class ClientSockWith:
 
 
 class ClientSocket:
-    def __init__(self):
+    def __init__(self, host, port):
         self.client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            self.client_sock.connect(('0', 8080))
+            self.client_sock.connect((host, port))
         except socket.error:
             MessageWindow("No connection with game server.").exec()
             raise
@@ -48,14 +48,14 @@ class ClientSocket:
         data = self.client_sock.recv(1024)
         return json.loads(data)
 
-    def find_match(self, username, taken, type_match):
-        req = {"command": "start", "username": username, "taken": taken, "type": type_match}
+    def find_match(self, username, token, type_match):
+        req = {"command": "start", "username": username, "token": token, "type": type_match}
         self.client_sock.sendall(bytes(json.dumps(req), "utf-8"))
         data = self.client_sock.recv(1024)
         return json.loads(data)
 
-    def request_turn(self, username, taken, ceil):
-        req = {"command": "turn", "username": username, "taken": taken, "ceil": ceil}
+    def request_turn(self, username, token, ceil):
+        req = {"command": "turn", "username": username, "token": token, "ceil": ceil}
         self.client_sock.sendall(bytes(json.dumps(req), "utf-8"))
         data = self.client_sock.recv(1024)
         return json.loads(data)
@@ -66,7 +66,6 @@ class EndGameWindow(QDialog, End_Ui):
         super().__init__()
         self.setupUi(self)
         self.setWindowTitle(title)
-        # icon.sclaed(500, 200)
         self.label_result.resize(icon.size())
         self.label_result.setPixmap(icon)
         self.main_window = main_window
@@ -85,9 +84,9 @@ class MessageWindow(QDialog):
     def __init__(self, message, title="Error"):
         super().__init__()
         self.setWindowTitle(title)
-        QBtn = QDialogButtonBox.Ok
+        q_button = QDialogButtonBox.Ok
         # self.setIcon(QMessageBox.Critical)
-        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox = QDialogButtonBox(q_button)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
 
@@ -99,16 +98,18 @@ class MessageWindow(QDialog):
 
 
 class RegistrationWindow(QtWidgets.QDialog, Reg_Ui):
-    def __init__(self, parent=None):
+    def __init__(self, host, port, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
         self.setupUi(self)
+        self.host = host
+        self.port = port
         self.setWindowModality(QtCore.Qt.ApplicationModal)
         self.conf_button.clicked.connect(self.sighup)
         self.cancel_button.clicked.connect(self.close)
 
     def sighup(self):
         if self.username_line.text() and self.password_line and self.email_line:
-            with ClientSockWith(1, 1) as client_socket:
+            with ClientSockWith(self.host, self.port) as client_socket:
                 response = client_socket.registration(
                     self.username_line.text(),
                     self.password_line.text(),
@@ -133,18 +134,17 @@ class LoginWindow(QtWidgets.QDialog, Log_Ui):
         self.login_button.clicked.connect(self.login)
         self.create_account_button.clicked.connect(self.start_registration)
 
-    @staticmethod
-    def start_registration():
-        reg_window = RegistrationWindow()
+    def start_registration(self):
+        reg_window = RegistrationWindow(self.main_window.server_host, self.main_window.server_port)
         reg_window.show()
         reg_window.exec()
 
     def login(self):
         if self.username_line.text() and self.password_line:
-            with ClientSockWith(1, 1) as client_socket:
+            with ClientSockWith(self.main_window.server_host, self.main_window.server_port) as client_socket:
                 response = client_socket.login(self.username_line.text(), self.password_line.text())
                 if response["authorization"]:
-                    self.main_window.taken = response["taken"]
+                    self.main_window.token = response["token"]
                     self.main_window.username = self.username_line.text()
                     print("success")
                     self.close()
@@ -156,15 +156,16 @@ class LoginWindow(QtWidgets.QDialog, Log_Ui):
 
 
 class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
-    def __init__(self, parent=None):
+    def __init__(self, host, port, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
-        self.taken = None
+        self.token = None
+        self.server_host = host
+        self.server_port = port
         self.username = None
         self.setupUi(self)
         self.login()
         self.mode = "pvp"
         self.end_game = None
-        self.symbol = None
         self.setup_game()
         self.comboBox.currentIndexChanged.connect(self.set_game_mode)
         self.connect_button.clicked.connect(self.find_match)
@@ -181,12 +182,20 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
             self.cel_8,
             self.cel_9]
         self.switch_block_field()
+        # self.menulogout.addAction(self.logout())
 
     def clear_field(self):
         list(map(lambda x: x.setIcon(QtGui.QIcon()), self.field))
         if self.end_game:
             self.end_game.close()
             self.end_game = None
+
+    def logout(self):
+        self.clear_field()
+        self.token = None
+        self.username = None
+        self.hide()
+        self.login()
 
     def switch_block_field(self):
         # list(map(lambda x: x.setEnabled(not x.isEnabled()), self.field))
@@ -195,8 +204,8 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
 
     def make_turn(self, button, index):
         self.switch_block_field()
-        with ClientSockWith(1, 1) as client_socket:
-            req = client_socket.request_turn(username=self.username, taken=self.taken, ceil=index)
+        with ClientSockWith(self.server_host, self.server_port) as client_socket:
+            req = client_socket.request_turn(username=self.username, token=self.token, ceil=index)
             print(f"req{req}")
             previous_icon = button.icon()
             button.setIcon(self.cross_icon)
@@ -243,8 +252,8 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
         self.field[8].clicked.connect(lambda: self.make_turn(self.field[8], 9))
 
     def find_match(self):
-        with ClientSockWith(1, 1) as client_socket:
-            response = client_socket.find_match(self.username, self.taken, "pvp")
+        with ClientSockWith(self.server_host, self.server_port) as client_socket:
+            response = client_socket.find_match(self.username, self.token, "pvp")
             print(f"response {response}")
             if response["result"]:
                 self.switch_block_field()
@@ -292,8 +301,8 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
 if __name__ == "__main__":
     # clSoc = ClientSocket()
     app = QtWidgets.QApplication(sys.argv)
-    wind = GameClient()
+    wind = GameClient(sys.argv[1], int(sys.argv[2]))
     # wind = LoginWindow()
-    if wind.taken:
+    if wind.token:
         wind.show()
         sys.exit(app.exec_())

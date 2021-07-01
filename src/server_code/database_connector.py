@@ -16,7 +16,7 @@ class Authorization:
         user = self.db.get_user(username)
         if user and user[PASSWORD] == hashlib.sha256(
                 password.encode("utf-8")).hexdigest():
-            return {"authorization": True, "taken": "".join(
+            return {"authorization": True, "token": "".join(
                 [secrets.choice(string.ascii_letters + string.digits) for _ in range(16)])}
         else:
             return {"authorization": False}
