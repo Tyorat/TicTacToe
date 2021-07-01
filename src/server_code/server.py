@@ -117,6 +117,7 @@ class GameServer:
         game_mes.update({"result": True, "turn_opponent": ceil})
         response = [{"writer": self.users[game.turn]["writer"], "message": game_mes}]
         if game_mes["endgame"]:
+            game_mes["turn_opponent"] = None
             response.append({"writer": writer, "message": game_mes})
         return response
 

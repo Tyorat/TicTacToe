@@ -1,15 +1,16 @@
 import os
 import json
 import socket
-import subprocess
+# import subprocess
 import sys
-import datetime
-import time
-from PyQt5.QtWidgets import QMessageBox, QDialog, QDialogButtonBox, QVBoxLayout, QLabel
-from PyQt5 import QtWidgets, QtCore, QtGui, Qt, QtSql
+# import datetime
+# import time
+from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QVBoxLayout, QLabel
+from PyQt5 import QtWidgets, QtCore, QtGui
 from game_client_ui import Ui_MainWindow
 from registration_client_ui import Ui_Dialog as Reg_Ui
 from sighin_client_ui import Ui_Dialog as Log_Ui
+from end_game_ui import Ui_Dialog as End_Ui
 
 SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -58,6 +59,26 @@ class ClientSocket:
         self.client_sock.sendall(bytes(json.dumps(req), "utf-8"))
         data = self.client_sock.recv(1024)
         return json.loads(data)
+
+
+class EndGameWindow(QDialog, End_Ui):
+    def __init__(self, icon, title, main_window):
+        super().__init__()
+        self.setupUi(self)
+        self.setWindowTitle(title)
+        # icon.sclaed(500, 200)
+        self.label_result.resize(icon.size())
+        self.label_result.setPixmap(icon)
+        self.main_window = main_window
+        self.exit_button.clicked.connect(self.exit_game)
+        self.new_game_button.clicked.connect(main_window.clear_field)
+
+    def exit_game(self):
+        self.main_window.close()
+        self.close()
+
+    def new_game(self):
+        self.main_window.clear_field(self)
 
 
 class MessageWindow(QDialog):
@@ -113,7 +134,7 @@ class LoginWindow(QtWidgets.QDialog, Log_Ui):
         self.create_account_button.clicked.connect(self.start_registration)
 
     @staticmethod
-    def start_registration(self):
+    def start_registration():
         reg_window = RegistrationWindow()
         reg_window.show()
         reg_window.exec()
@@ -142,6 +163,7 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.login()
         self.mode = "pvp"
+        self.end_game = None
         self.symbol = None
         self.setup_game()
         self.comboBox.currentIndexChanged.connect(self.set_game_mode)
@@ -158,21 +180,53 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
             self.cel_7,
             self.cel_8,
             self.cel_9]
+        self.switch_block_field()
 
     def clear_field(self):
-        map(lambda x: x.setIcon(None), self.field)
-        # self.cel_1
+        list(map(lambda x: x.setIcon(QtGui.QIcon()), self.field))
+        if self.end_game:
+            self.end_game.close()
+            self.end_game = None
+
+    def switch_block_field(self):
+        # list(map(lambda x: x.setEnabled(not x.isEnabled()), self.field))
+        pass
+        # self.cel_1.isEnabled()
 
     def make_turn(self, button, index):
+        self.switch_block_field()
         with ClientSockWith(1, 1) as client_socket:
             req = client_socket.request_turn(username=self.username, taken=self.taken, ceil=index)
             print(f"req{req}")
+            previous_icon = button.icon()
+            button.setIcon(self.cross_icon)
+            button.setIconSize(button.size())
+            self.update()
             if req["result"]:
-                button.setIcon(self.cross_icon)
-                button.setIconSize(button.size())
-                self.field[req["turn_opponent"]-1].setIcon(self.circle_icon)
-                self.field[req["turn_opponent"] - 1].setIconSize(
-                    self.field[req["turn_opponent"] - 1].size())
+                if req["turn_opponent"]:
+                    self.field[req["turn_opponent"] - 1].setIcon(self.circle_icon)
+                    self.field[req["turn_opponent"] - 1].setIconSize(
+                        self.field[req["turn_opponent"] - 1].size())
+                if req["endgame"]:
+                    self.end_game_window(req)
+            else:
+                button.setIcon(previous_icon)
+            self.switch_block_field()
+
+    def end_game_window(self, req):
+        message = req["message"]
+        if message == "draw":
+            title = 'Draw!'
+            icon = QtGui.QPixmap(os.path.join("..", "..", "data", "draw.png"))
+        elif message[4:] == self.username:
+            title = "Congratulation"
+            icon = QtGui.QPixmap(os.path.join("..", "..", "data", "win.jpg"))
+        else:
+            title = "Defeat"
+            icon = QtGui.QPixmap(os.path.join("..", "..", "data", "lose.png"))
+        self.end_game = EndGameWindow(icon, title, self)
+        self.end_game.show()
+        self.end_game.exec_()
 
     def bind_button(self):
         # for index, button in enumerate(self.field, 1):
@@ -191,8 +245,9 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
     def find_match(self):
         with ClientSockWith(1, 1) as client_socket:
             response = client_socket.find_match(self.username, self.taken, "pvp")
-            print(f"respon {response}")
+            print(f"response {response}")
             if response["result"]:
+                self.switch_block_field()
                 self.bind_button()
                 if response["turn_opponent"]:
                     self.field[response["turn_opponent"] - 1].setIcon(self.circle_icon)
