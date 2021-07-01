@@ -71,6 +71,7 @@ class EndGameWindow(QDialog, End_Ui):
         self.main_window = main_window
         self.exit_button.clicked.connect(self.exit_game)
         self.new_game_button.clicked.connect(main_window.clear_field)
+        # self(self.size())
 
     def exit_game(self):
         self.main_window.close()
@@ -78,6 +79,7 @@ class EndGameWindow(QDialog, End_Ui):
 
     def new_game(self):
         self.main_window.clear_field(self)
+        self.connect_button.setEnabled(True)
 
 
 class MessageWindow(QDialog):
@@ -155,6 +157,54 @@ class LoginWindow(QtWidgets.QDialog, Log_Ui):
             MessageWindow("Be sure to enter your password and username.").exec()
 
 
+class FindMatchThread(QtCore.QThread):
+    def __init__(self, main_window, parent=None):
+        super(FindMatchThread, self).__init__(parent)
+        self.main_window = main_window
+
+    def run(self) -> None:
+        with ClientSockWith(self.main_window.server_host, self.main_window.server_port) as client_socket:
+            response = client_socket.find_match(self.main_window.username, self.main_window.token, "pvp")
+            print(f"response {response}")
+            if response["result"]:
+                msg = MessageWindow("Your turn!", title="Game start")
+                msg.exec()
+                self.main_window.switch_block_field()
+                if response["turn_opponent"]:
+                    self.main_window.field[response["turn_opponent"] - 1].setIcon(self.main_window.circle_icon)
+                    self.main_window.field[response["turn_opponent"] - 1].setIconSize(
+                        self.main_window.field[response["turn_opponent"] - 1].size())
+                    # self.field[response["turn_opponent"] - 1]
+
+
+class MakeTurnThread(QtCore.QThread):
+    def __init__(self, main_window, parent=None):
+        super(MakeTurnThread, self).__init__(parent)
+        self.main_window = main_window
+
+    def run(self) -> None:
+        index = self.main_window.index
+        # button = self.main_window.field[index - 1]
+        print(f"Index in thread {index}")
+        with ClientSockWith(self.main_window.server_host, self.main_window.server_port) as client_socket:
+            req = client_socket.request_turn(
+                username=self.main_window.username,
+                token=self.main_window.token,
+                ceil=index)
+            print(f"req{req}")
+            # previous_icon = button.icon()
+            if req["result"]:
+                if req["turn_opponent"]:
+                    self.main_window.field[req["turn_opponent"] - 1].setIcon(self.main_window.circle_icon)
+                    self.main_window.field[req["turn_opponent"] - 1].setIconSize(
+                        self.main_window.field[req["turn_opponent"] - 1].size())
+                if req["endgame"]:
+                    self.main_window.end_game_window(req)
+            # else:
+            #     button.setIcon(previous_icon)
+            self.main_window.switch_block_field()
+
+
 class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, host, port, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
@@ -168,7 +218,7 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
         self.end_game = None
         self.setup_game()
         self.comboBox.currentIndexChanged.connect(self.set_game_mode)
-        self.connect_button.clicked.connect(self.find_match)
+        self.connect_button.clicked.connect(self.launcher_find_match)
         self.cross_icon = QtGui.QIcon(os.path.join(SCRIPT_PATH, "..", "..", "data", "cross.png"))
         self.circle_icon = QtGui.QIcon(os.path.join(SCRIPT_PATH, "..", "..", "data", "circle.png"))
         self.field = [
@@ -181,8 +231,12 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
             self.cel_7,
             self.cel_8,
             self.cel_9]
+        self.bind_button()
         self.switch_block_field()
-        # self.menulogout.addAction(self.logout())
+        self.thread_find_match = FindMatchThread(main_window=self)
+        self.thread_make_turn = MakeTurnThread(main_window=self)
+        self.index = None
+        self.setFixedSize(850, 700)
 
     def clear_field(self):
         list(map(lambda x: x.setIcon(QtGui.QIcon()), self.field))
@@ -198,29 +252,17 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
         self.login()
 
     def switch_block_field(self):
-        # list(map(lambda x: x.setEnabled(not x.isEnabled()), self.field))
-        pass
+        list(map(lambda x: x.setEnabled(not x.isEnabled()), self.field))
+        # pass
         # self.cel_1.isEnabled()
 
-    def make_turn(self, button, index):
+    def launch_make_turn(self, index):
+        print(f"Index {index}")
+        self.field[index-1].setIcon(self.cross_icon)
+        self.field[index-1].setIconSize(self.field[index-1].size())
         self.switch_block_field()
-        with ClientSockWith(self.server_host, self.server_port) as client_socket:
-            req = client_socket.request_turn(username=self.username, token=self.token, ceil=index)
-            print(f"req{req}")
-            previous_icon = button.icon()
-            button.setIcon(self.cross_icon)
-            button.setIconSize(button.size())
-            self.update()
-            if req["result"]:
-                if req["turn_opponent"]:
-                    self.field[req["turn_opponent"] - 1].setIcon(self.circle_icon)
-                    self.field[req["turn_opponent"] - 1].setIconSize(
-                        self.field[req["turn_opponent"] - 1].size())
-                if req["endgame"]:
-                    self.end_game_window(req)
-            else:
-                button.setIcon(previous_icon)
-            self.switch_block_field()
+        self.index = index
+        self.thread_make_turn.start()
 
     def end_game_window(self, req):
         message = req["message"]
@@ -240,29 +282,22 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
     def bind_button(self):
         # for index, button in enumerate(self.field, 1):
         #     print(index, button)
-        #     button.clicked.connect(lambda: self.make_turn(button, index))
-        self.field[0].clicked.connect(lambda: self.make_turn(self.field[0], 1))
-        self.field[1].clicked.connect(lambda: self.make_turn(self.field[1], 2))
-        self.field[2].clicked.connect(lambda: self.make_turn(self.field[2], 3))
-        self.field[3].clicked.connect(lambda: self.make_turn(self.field[3], 4))
-        self.field[4].clicked.connect(lambda: self.make_turn(self.field[4], 5))
-        self.field[5].clicked.connect(lambda: self.make_turn(self.field[5], 6))
-        self.field[6].clicked.connect(lambda: self.make_turn(self.field[6], 7))
-        self.field[7].clicked.connect(lambda: self.make_turn(self.field[7], 8))
-        self.field[8].clicked.connect(lambda: self.make_turn(self.field[8], 9))
+        #     button.clicked.connect(lambda: self.launch_make_turn(button, index))
+        print("try bind button")
+        self.field[0].clicked.connect(lambda: self.launch_make_turn(1))
+        self.field[1].clicked.connect(lambda: self.launch_make_turn(2))
+        self.field[2].clicked.connect(lambda: self.launch_make_turn(3))
+        self.field[3].clicked.connect(lambda: self.launch_make_turn(4))
+        self.field[4].clicked.connect(lambda: self.launch_make_turn(5))
+        self.field[5].clicked.connect(lambda: self.launch_make_turn(6))
+        self.field[6].clicked.connect(lambda: self.launch_make_turn(7))
+        self.field[7].clicked.connect(lambda: self.launch_make_turn(8))
+        self.field[8].clicked.connect(lambda: self.launch_make_turn(9))
 
-    def find_match(self):
-        with ClientSockWith(self.server_host, self.server_port) as client_socket:
-            response = client_socket.find_match(self.username, self.token, "pvp")
-            print(f"response {response}")
-            if response["result"]:
-                self.switch_block_field()
-                self.bind_button()
-                if response["turn_opponent"]:
-                    self.field[response["turn_opponent"] - 1].setIcon(self.circle_icon)
-                    self.field[response["turn_opponent"] - 1].setIconSize(
-                        self.field[response["turn_opponent"] - 1].size())
-                    # self.field[response["turn_opponent"] - 1]
+    def launcher_find_match(self):
+        # self.switch_block_field()s
+        self.connect_button.setEnabled(False)
+        self.thread_find_match.start()
 
     def login(self):
         print("LOGIN")

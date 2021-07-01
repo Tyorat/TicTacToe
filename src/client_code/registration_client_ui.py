@@ -15,6 +15,8 @@ class Ui_Dialog(object):
     def setupUi(self, Dialog):
         Dialog.setObjectName("Dialog")
         Dialog.resize(350, 250)
+        Dialog.setMinimumSize(QtCore.QSize(350, 250))
+        Dialog.setMaximumSize(QtCore.QSize(350, 250))
         self.verticalLayout = QtWidgets.QVBoxLayout(Dialog)
         self.verticalLayout.setObjectName("verticalLayout")
         self.horizontalLayout = QtWidgets.QHBoxLayout()
