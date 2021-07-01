@@ -12,12 +12,14 @@ for another player. When server found two players or more, it connects two playe
 After that it send one of him(randomly) that he can make a turn, and he makes a turn. 
 And so they take turns making moves until the end of the match, after which they can start another game.
 ****************************************************
-#Client part
+##Client part
+
 Need install pyqt5 for work gui( pip install -r requirement.txt). Run file is client.py
 Client part connect to server(need username and password),
 after that it got token.Token need for take turn and find game. 
 ****************************************************
-#Example run
+##Example run
+
 * Server:
 python3 main.py 8080
 (8080 is server port)
@@ -26,11 +28,10 @@ python3 client.py 192.168.17.32 8080
   (192.168.17.32 is ip server)
   
 ***************************************************
-#Issues and feature to do
-* GUI use sync interface, so it blocks update window. So before it doesn't get answer from server it cann't display
-turn of player and doesn't block button( if user clicks too much, it will make a move to the front).
-  
-* Also while user waiting for opponent or turn opponent, game must show something.
+##Issues and feature to do
+
+* After finish game find new game doesn't work.
+* Logout doesn't work
 * Add test and make more try exception
 * Add AI(hard, easy, medium)
 * Add some sound
