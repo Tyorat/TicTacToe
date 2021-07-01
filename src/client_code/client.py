@@ -71,7 +71,6 @@ class EndGameWindow(QDialog, End_Ui):
         self.main_window = main_window
         self.exit_button.clicked.connect(self.exit_game)
         self.new_game_button.clicked.connect(main_window.clear_field)
-        # self(self.size())
 
     def exit_game(self):
         self.main_window.close()
@@ -87,7 +86,6 @@ class MessageWindow(QDialog):
         super().__init__()
         self.setWindowTitle(title)
         q_button = QDialogButtonBox.Ok
-        # self.setIcon(QMessageBox.Critical)
         self.buttonBox = QDialogButtonBox(q_button)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.reject)
@@ -306,10 +304,6 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
         window.exec_()
 
     def set_game_mode(self):
-        # self.comboBox.setItemText(0, _translate("MainWindow", "PvP"))
-        # self.comboBox.setItemText(1, _translate("MainWindow", "Easy AI"))
-        # self.comboBox.setItemText(2, _translate("MainWindow", "Medium AI"))
-        # self.comboBox.setItemText(3, _translate("MainWindow", "Hard Ai"))
         if self.comboBox.currentText() == "Easy AI":
             self.mode = "easy"
             self.you.setPixmap(QtGui.QPixmap(os.path.join(SCRIPT_PATH, "..", "..", "data", "easy_ai.png")))
