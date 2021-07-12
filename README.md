@@ -30,8 +30,6 @@ python3 client.py 192.168.17.32 8080
 ***************************************************
 ## Issues and feature to do
 
-* After finish game find new game doesn't work.
-* Logout doesn't work
 * Add test and make more try exception
 * Add AI(hard, easy, medium)
 * Add some sound
