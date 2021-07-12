@@ -1,5 +1,5 @@
 import os
-from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QVBoxLayout, QLabel
+from PyQt5.QtWidgets import QDialog, QDialogButtonBox, QVBoxLayout, QLabel, QAction
 from PyQt5 import QtWidgets, QtCore, QtGui
 from game_client_ui import Ui_MainWindow
 from registration_client_ui import Ui_Dialog as Reg_Ui
@@ -54,7 +54,6 @@ class LoginWindow(QtWidgets.QDialog, Log_Ui):
                 if response["authorization"]:
                     self.main_window.token = response["token"]
                     self.main_window.username = self.username_line.text()
-                    print("success")
                     self.close()
                 else:
                     err_w = MessageWindow("Invalid username or password", parent=self)
@@ -138,6 +137,17 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
         self.__threads = []
         self.index = None
         self.setFixedSize(850, 700)
+        self.setup_menu_bar()
+        self.setWindowIcon(QtGui.QIcon(os.path.join("..", "..", "data", "tik.png")))
+
+    def setup_menu_bar(self):
+        logout_button = QAction(QtGui.QIcon(), "logout", self)
+        exit_button = QAction(QtGui.QIcon(), "exit", self)
+        logout_button.setShortcut("Ctrl+x")
+        exit_button.setShortcut("Ctrl+e")
+        logout_button.triggered.connect(self.logout)
+        exit_button.triggered.connect(self.close)
+        self.menulogout.addActions([logout_button, exit_button])
 
     def login(self):
         window = LoginWindow(self)
@@ -253,8 +263,10 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
             self.launcher_find_match()
 
     def logout(self):
+        print("Logout")
         self.clear_field()
         self.token = None
         self.username = None
         self.hide()
         self.login()
+        self.show()
