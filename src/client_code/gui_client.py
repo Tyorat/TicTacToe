@@ -12,8 +12,8 @@ SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
 
 
 class EndGameWindow(QDialog, End_Ui):
-    def __init__(self, icon, title, main_window):
-        super().__init__()
+    def __init__(self, icon, title, main_window, parent=None):
+        super().__init__(parent)
         self.setupUi(self)
         self.setWindowTitle(title)
         self.label_result.resize(icon.size())
@@ -48,7 +48,6 @@ class LoginWindow(QtWidgets.QDialog, Log_Ui):
         reg_window.exec()
 
     def login(self):
-        print("LOGGGGGGGG")
         if self.username_line.text() and self.password_line:
             with ClientSockWith(self.main_window.server_host, self.main_window.server_port) as client_socket:
                 response = client_socket.login(self.username_line.text(), self.password_line.text())
@@ -58,15 +57,15 @@ class LoginWindow(QtWidgets.QDialog, Log_Ui):
                     print("success")
                     self.close()
                 else:
-                    err_w = MessageWindow("Invalid username or password")
+                    err_w = MessageWindow("Invalid username or password", parent=self)
                     err_w.exec()
         else:
-            MessageWindow("Be sure to enter your password and username.").exec()
+            MessageWindow("Be sure to enter your password and username.", parent=self).exec()
 
 
 class MessageWindow(QDialog):
-    def __init__(self, message, title="Error"):
-        super().__init__()
+    def __init__(self, message, title="Error", parent=None):
+        super().__init__(parent)
         self.setWindowTitle(title)
         q_button = QDialogButtonBox.Ok
         self.buttonBox = QDialogButtonBox(q_button)
@@ -98,14 +97,14 @@ class RegistrationWindow(QtWidgets.QDialog, Reg_Ui):
                     self.password_line.text(),
                     self.email_line.text())
                 if response["registration"]:
-                    msg = MessageWindow("Registration success", title="Congratulation")
+                    msg = MessageWindow("Registration success", title="Congratulation", parent=self)
                     msg.exec()
                     self.close()
                 else:
-                    err_w = MessageWindow("User with username already exists")
+                    err_w = MessageWindow("User with username already exists", parent=self)
                     err_w.exec()
         else:
-            MessageWindow("Be sure to enter your password, username and email.").exec()
+            MessageWindow("Be sure to enter your password, username and email.", parent=self).exec()
 
 
 class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
@@ -160,17 +159,17 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
         if self.comboBox.currentText() == "Easy AI":
             self.mode = "easy"
             self.you.setPixmap(QtGui.QPixmap(os.path.join(SCRIPT_PATH, "..", "..", "data", "easy_ai.png")))
-            msg = MessageWindow("Coming soon", title="Information")
+            msg = MessageWindow("Coming soon", title="Information", parent=self)
             msg.exec()
         elif self.comboBox.currentText() == "Medium AI":
             self.mode = "medium"
             self.you.setPixmap(QtGui.QPixmap(os.path.join(SCRIPT_PATH, "..", "..", "data", "med_ai.png")))
-            msg = MessageWindow("Coming soon", title="Information")
+            msg = MessageWindow("Coming soon", title="Information", parent=self)
             msg.exec()
         elif self.comboBox.currentText() == "Hard AI":
             self.mode = "hard"
             self.you.setPixmap(QtGui.QPixmap(os.path.join(SCRIPT_PATH, "..", "..", "data", "hard_ai.png")))
-            msg = MessageWindow("Coming soon", title="Information")
+            msg = MessageWindow("Coming soon", title="Information", parent=self)
             msg.exec()
         else:
             self.mode = "pvp"
@@ -190,7 +189,7 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
     @QtCore.pyqtSlot(dict)
     def on_worker_find_match_done(self, response):
         if response["result"]:
-            msg = MessageWindow("Your turn!", title="Game start")
+            msg = MessageWindow("Your turn!", title="Game start", parent=self)
             msg.exec()
             self.switch_block_field()
             if response["turn_opponent"]:
@@ -240,7 +239,7 @@ class GameClient(QtWidgets.QMainWindow, Ui_MainWindow):
         else:
             title = "Defeat"
             icon = QtGui.QPixmap(os.path.join("..", "..", "data", "lose.png"))
-        self.end_game = EndGameWindow(icon, title, self)
+        self.end_game = EndGameWindow(icon, title, self, parent=self)
         self.end_game.show()
         self.end_game.exec_()
         self.clear_field()
